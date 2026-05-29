@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Miplle Home</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #080c14;
+      --surface: #0e1420;
+      --border: rgba(255,255,255,0.06);
+      --text: #e8edf5;
+      --muted: #4a5568;
+      --accent: #3b82f6;
+      --accent2: #8b5cf6;
+      --green: #10b981;
+      --red: #ef4444;
+      --amber: #f59e0b;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      overflow: hidden;
+    }
+
+    /* ---- Background ---- */
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+    .bg-glow {
+      position: fixed; z-index: 0;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+    }
+    .bg-glow-1 {
+      width: 600px; height: 600px;
+      top: -200px; left: -100px;
+      background: radial-gradient(circle, rgba(59,130,246,0.12), transparent 70%);
+    }
+    .bg-glow-2 {
+      width: 500px; height: 500px;
+      bottom: -100px; right: -100px;
+      background: radial-gradient(circle, rgba(139,92,246,0.1), transparent 70%);
+    }
+
+    /* ---- Layout ---- */
+    .app {
+      position: relative; z-index: 1;
+      width: 100%; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: space-between;
+      padding: 24px 20px 32px;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      width: 100%; display: flex;
+      align-items: center; justify-content: space-between;
+    }
+    .logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 18px; font-weight: 700;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .status-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 12px; font-weight: 300;
+      color: var(--muted);
+      transition: all 0.3s;
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: all 0.3s;
+    }
+    .status-pill.waiting .status-dot { background: var(--muted); }
+    .status-pill.listening .status-dot {
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: blink 1s infinite;
+    }
+    .status-pill.thinking .status-dot {
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+    }
+    .status-pill.speaking .status-dot {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ---- Conversa ---- */
+    .chat-area {
+      flex: 1;
+      width: 100%; max-width: 640px;
+      display: flex; flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      padding: 16px 0;
+      scrollbar-width: none;
+    }
+    .chat-area::-webkit-scrollbar { display: none; }
+
+    .message {
+      display: flex;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .message.user { justify-content: flex-end; }
+    .message.assistant { justify-content: flex-start; }
+
+    .bubble {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      font-weight: 300;
+    }
+    .message.user .bubble {
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .message.assistant .bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+
+    .empty-state {
+      flex: 1; display: flex;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 8px; color: var(--muted);
+      text-align: center;
+    }
+    .empty-icon { font-size: 32px; opacity: 0.4; }
+    .empty-title { font-size: 14px; font-weight: 300; }
+    .empty-sub { font-size: 12px; opacity: 0.6; }
+
+    /* ---- Orb ---- */
+    .orb-section {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 20px;
+    }
+
+    .orb-wrapper {
+      position: relative;
+      width: 140px; height: 140px;
+      cursor: pointer;
+    }
+
+    .orb-ring {
+      position: absolute; inset: -8px;
+      border-radius: 50%;
+      border: 1px solid transparent;
+      transition: all 0.4s;
+    }
+    .orb-ring-1 {
+      border-color: rgba(59,130,246,0.2);
+      animation: rotate 8s linear infinite;
+    }
+    .orb-ring-2 {
+      inset: -16px;
+      border-color: rgba(139,92,246,0.1);
+      animation: rotate 12s linear infinite reverse;
+    }
+    @keyframes rotate { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+    .orb {
+      position: relative;
+      width: 140px; height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%,
+        rgba(99,148,255,0.9),
+        rgba(59,82,200,0.8) 40%,
+        rgba(15,20,60,0.95) 80%
+      );
+      box-shadow:
+        0 0 40px rgba(59,130,246,0.3),
+        0 0 80px rgba(59,130,246,0.1),
+        inset 0 0 40px rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.3s;
+      user-select: none;
+    }
+    .orb::after {
+      content: '';
+      position: absolute;
+      top: 18%; left: 22%;
+      width: 28%; height: 18%;
+      background: rgba(255,255,255,0.15);
+      border-radius: 50%;
+      filter: blur(4px);
+    }
+    .orb-icon { font-size: 40px; z-index: 1; }
+
+    /* Estados do orb */
+    .orb.listening {
+      background: radial-gradient(circle at 35% 35%,
+        rgba(255,120,120,0.9),
+        rgba(200,50,50,0.8) 40%,
+        rgba(60,10,10,0.95) 80%
+      );
+      box-shadow: 0 0 40px rgba(239,68,68,0.4), 0 0 80px rgba(239,68,68,0.15);
+      animation: orbPulse 1s ease-in-out infinite;
+    }
+    .orb.thinking {
+      background: radial-gradient(circle at 35% 35%,
+        rgba(255,200,80,0.9),
+        rgba(200,140,20,0.8) 40%,
+        rgba(60,40,0,0.95) 80%
+      );
+      box-shadow: 0 0 40px rgba(245,158,11,0.4), 0 0 80px rgba(245,158,11,0.15);
+      animation: orbSpin 2s linear infinite;
+    }
+    .orb.speaking {
+      background: radial-gradient(circle at 35% 35%,
+        rgba(80,220,160,0.9),
+        rgba(20,160,100,0.8) 40%,
+        rgba(0,50,30,0.95) 80%
+      );
+      box-shadow: 0 0 40px rgba(16,185,129,0.4), 0 0 80px rgba(16,185,129,0.15);
+      animation: orbSpeak 0.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes orbPulse {
+      0%,100%{transform:scale(1); box-shadow:0 0 40px rgba(239,68,68,0.4),0 0 80px rgba(239,68,68,0.15)}
+      50%{transform:scale(1.06); box-shadow:0 0 60px rgba(239,68,68,0.6),0 0 100px rgba(239,68,68,0.2)}
+    }
+    @keyframes orbSpin {
+      from{filter:hue-rotate(0deg)} to{filter:hue-rotate(360deg)}
+    }
+    @keyframes orbSpeak {
+      from{transform:scale(1)} to{transform:scale(1.04)}
+    }
+
+    /* ---- Hint de wake word ---- */
+    .wake-hint {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 16px;
+      font-size: 13px; font-weight: 300;
+      color: var(--muted);
+    }
+    .wake-hint kbd {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      background: rgba(59,130,246,0.15);
+      color: var(--accent);
+      border: 1px solid rgba(59,130,246,0.3);
+      border-radius: 6px;
+      padding: 2px 7px;
+    }
+
+    /* ---- Transcript live ---- */
+    .transcript-live {
+      width: 100%; max-width: 500px;
+      min-height: 20px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      font-style: italic;
+      font-weight: 300;
+      transition: all 0.3s;
+      padding: 0 20px;
+    }
+    .transcript-live.active { color: var(--text); font-style: normal; }
+
+    /* ---- Tablet ---- */
+    @media (min-width: 600px) {
+      .orb-wrapper { width: 180px; height: 180px; }
+      .orb { width: 180px; height: 180px; }
+      .orb-icon { font-size: 52px; }
+      .bubble { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="app">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">MIPLLE</div>
+      <div class="status-pill waiting" id="statusPill">
+        <div class="status-dot"></div>
+        <span id="statusText">aguardando</span>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div class="chat-area" id="chatArea">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🏠</div>
+        <div class="empty-title">Diga <strong>"Hey Miplle"</strong> ou toque no orb</div>
+        <div class="empty-sub">Controle sua casa com voz natural</div>
+      </div>
+    </div>
+
+    <!-- Transcript ao vivo -->
+    <div class="transcript-live" id="transcriptLive"></div>
+
+    <!-- Orb -->
+    <div class="orb-section">
+      <div class="orb-wrapper" id="orbWrapper" onclick="toggleListen()">
+        <div class="orb-ring orb-ring-2"></div>
+        <div class="orb-ring orb-ring-1"></div>
+        <div class="orb" id="orb">
+          <span class="orb-icon" id="orbIcon">🏠</span>
+        </div>
+      </div>
+
+      <div class="wake-hint">
+        <span>diga</span>
+        <kbd>Hey Miplle</kbd>
+        <span>ou toque</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======== CONFIG ========
+    const WORKER_URL = "https://miplle-home-assistant.miplleplu.workers.dev/";
+    const WAKE_WORDS = ["hey miplle", "ei miplle", "miplle", "hey maple", "hey people"];
+    // ========================
+
+    let state = "idle"; // idle | wake_listening | command_listening | thinking | speaking
+    let recognition = null;
+    let wakeRecognition = null;
+    let synth = window.speechSynthesis;
+    let conversationHistory = [];
+    let isWakeListening = false;
+
+    // ---- Elementos ----
+    const orb = document.getElementById("orb");
+    const orbIcon = document.getElementById("orbIcon");
+    const statusPill = document.getElementById("statusPill");
+    const statusText = document.getElementById("statusText");
+    const chatArea = document.getElementById("chatArea");
+    const emptyState = document.getElementById("emptyState");
+    const transcriptLive = document.getElementById("transcriptLive");
+
+    // ---- Estado visual ----
+    function setState(newState, label, icon) {
+      state = newState;
+      orb.className = "orb " + (newState !== "idle" ? newState.replace("wake_listening","") : "");
+      statusPill.className = "status-pill " + (newState === "idle" ? "waiting" : newState === "thinking" ? "thinking" : newState === "speaking" ? "speaking" : "listening");
+      statusText.textContent = label;
+      orbIcon.textContent = icon;
+    }
+
+    // ---- Mensagem no chat ----
+    function addMessage(role, text) {
+      if (emptyState) emptyState.remove();
+      const msg = document.createElement("div");
+      msg.className = "message " + role;
+      msg.innerHTML = `<div class="bubble">${text}</div>`;
+      chatArea.appendChild(msg);
+      chatArea.scrollTop = chatArea.scrollHeight;
+    }
+
+    // ---- TTS ----
+    function speak(text, onEnd) {
+      synth.cancel();
+      setState("speaking", "falando...", "🔊");
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = "pt-BR";
+      utt.rate = 1.05;
+      utt.pitch = 1.0;
+
+      // Preferir voz feminina PT-BR se disponível
+      const voices = synth.getVoices();
+      const ptVoice = voices.find(v => v.lang.startsWith("pt") && v.name.toLowerCase().includes("female"))
+                   || voices.find(v => v.lang.startsWith("pt"));
+      if (ptVoice) utt.voice = ptVoice;
+
+      utt.onend = () => {
+        setState("idle", "aguardando", "🏠");
+        startWakeWord();
+        if (onEnd) onEnd();
+      };
+      utt.onerror = () => {
+        setState("idle", "aguardando", "🏠");
+        startWakeWord();
+      };
+      synth.speak(utt);
+    }
+
+    // ---- Chamar Worker ----
+    async function sendToAI(text) {
+      addMessage("user", text);
+      setState("thinking", "pensando...", "⚡");
+      transcriptLive.textContent = "";
+
+      // Manter histórico (últimas 6 mensagens)
+      conversationHistory.push({ role: "user", content: text });
+      if (conversationHistory.length > 6) conversationHistory = conversationHistory.slice(-6);
+
+      try {
+        const res = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, history: conversationHistory.slice(0, -1) })
+        });
+        const data = await res.json();
+        const spoken = data.spoken || "Não consegui processar sua solicitação.";
+
+        conversationHistory.push({ role: "assistant", content: spoken });
+        addMessage("assistant", spoken);
+        speak(spoken);
+      } catch (err) {
+        const errMsg = "Erro de conexão. Verifique sua internet.";
+        addMessage("assistant", errMsg);
+        speak(errMsg);
+      }
+    }
+
+    // ---- Reconhecimento de comando ----
+    function startCommandListening() {
+      stopWakeWord();
+      setState("listening", "ouvindo...", "🎙️");
+      transcriptLive.textContent = "...";
+
+      recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = "pt-BR";
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (e) => {
+        const interim = Array.from(e.results).map(r => r[0].transcript).join("");
+        transcriptLive.textContent = interim;
+        transcriptLive.className = "transcript-live active";
+
+        if (e.results[e.results.length - 1].isFinal) {
+          const final = e.results[e.results.length - 1][0].transcript.trim();
+          transcriptLive.textContent = "";
+          transcriptLive.className = "transcript-live";
+          if (final.length > 1) sendToAI(final);
+          else {
+            setState("idle", "aguardando", "🏠");
+            startWakeWord();
+          }
+        }
+      };
+
+      recognition.onerror = (e) => {
+        if (e.error !== "no-speech" && e.error !== "aborted") {
+          addMessage("assistant", "Não ouvi nada. Tente novamente.");
+        }
+        setState("idle", "aguardando", "🏠");
+        transcriptLive.textContent = "";
+        startWakeWord();
+      };
+
+      recognition.onend = () => {
+        if (state === "listening") {
+          setState("idle", "aguardando", "🏠");
+          startWakeWord();
+        }
+      };
+
+      recognition.start();
+    }
+
+    // ---- Wake Word ----
+    function startWakeWord() {
+      if (isWakeListening || state !== "idle") return;
+      if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) return;
+
+      isWakeListening = true;
+      wakeRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      wakeRecognition.lang = "pt-BR";
+      wakeRecognition.continuous = true;
+      wakeRecognition.interimResults = true;
+
+      wakeRecognition.onresult = (e) => {
+        if (state !== "idle") return;
+        const text = Array.from(e.results)
+          .map(r => r[0].transcript.toLowerCase().trim())
+          .join(" ");
+
+        const detected = WAKE_WORDS.some(w => text.includes(w));
+        if (detected) {
+          wakeRecognition.stop();
+          isWakeListening = false;
+          // Pequeno delay para o microfone liberar
+          setTimeout(() => startCommandListening(), 300);
+        }
+      };
+
+      wakeRecognition.onerror = (e) => {
+        isWakeListening = false;
+        if (e.error === "not-allowed") {
+          addMessage("assistant", "Permissão de microfone negada. Toque no orb para usar.");
+          return;
+        }
+        // Reiniciar após erro
+        if (state === "idle") {
+          setTimeout(() => startWakeWord(), 1000);
+        }
+      };
+
+      wakeRecognition.onend = () => {
+        isWakeListening = false;
+        if (state === "idle") {
+          setTimeout(() => startWakeWord(), 500);
+        }
+      };
+
+      try { wakeRecognition.start(); } catch(e) { isWakeListening = false; }
+    }
+
+    function stopWakeWord() {
+      isWakeListening = false;
+      if (wakeRecognition) {
+        try { wakeRecognition.stop(); } catch(e) {}
+        wakeRecognition = null;
+      }
+    }
+
+    // ---- Toggle manual (toque no orb) ----
+    function toggleListen() {
+      if (state === "thinking" || state === "speaking") return;
+      if (state === "listening") {
+        if (recognition) { try { recognition.stop(); } catch(e) {} }
+        setState("idle", "aguardando", "🏠");
+        startWakeWord();
+      } else {
+        startCommandListening();
+      }
+    }
+
+    // ---- Init ----
+    window.addEventListener("load", () => {
+      // Carregar vozes
+      if (synth.onvoiceschanged !== undefined) {
+        synth.onvoiceschanged = () => synth.getVoices();
+      }
+      synth.getVoices();
+
+      // Verificar suporte
+      if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+        addMessage("assistant", "Seu navegador não suporta reconhecimento de voz. Use o Chrome.");
+        return;
+      }
+
+      // Iniciar wake word (precisa de interação do usuário primeiro no mobile)
+      setTimeout(() => startWakeWord(), 500);
+    });
+
+    // No mobile, STT precisa de gesto do usuário
+    document.addEventListener("click", () => {
+      if (!isWakeListening && state === "idle") {
+        setTimeout(() => startWakeWord(), 200);
+      }
+    }, { once: true });
+  </script>
+</body>
+</html>
